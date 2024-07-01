@@ -143,7 +143,7 @@ int main(void)
 	  if(stateFinishADC){
 		  stateFinishADC = 0;
 		  for(int ch = 0; ch < NUM_CHANNEL-1; ch++){
-			  float sum = 0.0;
+			  double sum = 0.0;
 			  for(int i = ch; i < NUM_SAMPLE * NUM_CHANNEL; i += NUM_CHANNEL){
 				  int iBuffer;
 				  if(ch==0){
@@ -157,7 +157,7 @@ int main(void)
 				  float voltage = (adcBuffer[i] * vdda )/ 4095;
 				  sum += voltage * voltage;
 			  }
-			  vrms[ch] = sqrtf(sum / NUM_SAMPLE);
+			  vrms[ch] = (uint32_t)(sqrt(sum / NUM_SAMPLE));
 		  }
 	  }
 
