@@ -48,7 +48,7 @@
 #define TRESHOLD1			2580
 #define TRESHOLD2			2553
 #define TRESHOLD3			2553
-#define TRESHOLD_GENERAL	10
+#define TRESHOLD_GENERAL	300
 #define INTERVAL  			1000
 /* USER CODE END PD */
 
@@ -68,16 +68,12 @@ uint32_t vAdcVrmsOff[3];
 uint32_t voltBuffer1[200];
 uint32_t voltBuffer2[200];
 uint32_t voltBuffer3[200];
-double sum1;
-double sum2;
-double sum3;
 uint32_t timer = 0;
 uint8_t stateEvent = 0;
 uint8_t bufferString[100];
 uint16_t counterLog = 0;
 volatile uint8_t stateFinishADC = 0;
 uint8_t stateCH[3];
-uint8_t stateCHOld[3];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -88,44 +84,51 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef * hadc);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+uint32_t getMaxValue(uint32_t samples[], uint32_t num_samples) {
+    uint32_t max_value = 0;
+    for (uint32_t i = 0; i < num_samples; i++) {
+        if (samples[i] > max_value) {
+            max_value = samples[i];
+        }
+    }
+    return max_value;
+}
 /* USER CODE END 0 */
 
 /**
- * @brief  The application entry point.
- * @retval int
- */
+  * @brief  The application entry point.
+  * @retval int
+  */
 int main(void)
 {
 
-	/* USER CODE BEGIN 1 */
+  /* USER CODE BEGIN 1 */
 
-	/* USER CODE END 1 */
+  /* USER CODE END 1 */
 
-	/* MCU Configuration--------------------------------------------------------*/
+  /* MCU Configuration--------------------------------------------------------*/
 
-	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-	HAL_Init();
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
 
-	/* USER CODE BEGIN Init */
+  /* USER CODE BEGIN Init */
+	HAL_Delay(1000);
+  /* USER CODE END Init */
 
-	/* USER CODE END Init */
+  /* Configure the system clock */
+  SystemClock_Config();
 
-	/* Configure the system clock */
-	SystemClock_Config();
+  /* USER CODE BEGIN SysInit */
 
-	/* USER CODE BEGIN SysInit */
+  /* USER CODE END SysInit */
 
-	/* USER CODE END SysInit */
-
-	/* Initialize all configured peripherals */
-	MX_GPIO_Init();
-	MX_DMA_Init();
-	MX_ADC_Init();
-	MX_TIM2_Init();
-	MX_LPUART1_UART_Init();
-
-	/* USER CODE BEGIN 2 */
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_DMA_Init();
+  MX_ADC_Init();
+  MX_TIM2_Init();
+  MX_LPUART1_UART_Init();
+  /* USER CODE BEGIN 2 */
 	timer = HAL_GetTick();
 	// CALBRATION ADC BEFORE STARTING
 	if(HAL_ADCEx_Calibration_Start(&hadc, ADC_SINGLE_ENDED) != HAL_OK){
@@ -139,48 +142,45 @@ int main(void)
 
 	// INIT OFF VALUE VRMS
 	while(stateFinishADC==0){}
-	for(uint8_t i=0;i<3;i++){
+	HAL_Delay(1000);
+	uint32_t sumAdcVrmsOff[3];
+	for(uint8_t i1=0;i1<10;i1++){
 		if(stateFinishADC){
 			stateFinishADC = 0;
-			sum1 = sum2 = sum3 = 0;
 			for(uint8_t i=0;i<200;i++){
 				vdda = (3000UL * *VREFINT_CAL) / adcBuffer[VDDA_CH];
 				voltBuffer1[i] = (adcBuffer[0] * vdda) / 4095;
-				sum1 += voltBuffer1[i] * voltBuffer1[i];
 				voltBuffer2[i] = (adcBuffer[1] * vdda) / 4095;
-				sum2 += voltBuffer2[i] * voltBuffer2[i];
 				voltBuffer3[i] = (adcBuffer[2] * vdda) / 4095;
-				sum3 += voltBuffer3[i] * voltBuffer3[i];
 				HAL_Delay(1);
 			}
-			vAdcVrmsOff[0] = sqrt(sum1/200);
-			vAdcVrmsOff[1] = sqrt(sum2/200);
-			vAdcVrmsOff[2] = sqrt(sum3/200);
+			vAdcVrmsOff[0] = getMaxValue(voltBuffer1, 200)/sqrt(2);
+			vAdcVrmsOff[1] = getMaxValue(voltBuffer2, 200)/sqrt(2);
+			vAdcVrmsOff[2] = getMaxValue(voltBuffer3, 200)/sqrt(2);
 		}
+		HAL_Delay(10);
 	}
-	/* USER CODE END 2 */
+  /* USER CODE END 2 */
 
-	/* Infinite loop */
-	/* USER CODE BEGIN WHILE */
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
 	while (1)
 	{
 		if(stateFinishADC){
 			stateFinishADC = 0;
-			sum1 = sum2 = sum3 = 0;
 			for(uint8_t i=0;i<200;i++){
 				vdda = (3000UL * *VREFINT_CAL) / adcBuffer[VDDA_CH];
 				voltBuffer1[i] = (adcBuffer[0] * vdda) / 4095;
-				sum1 += voltBuffer1[i] * voltBuffer1[i];
 				voltBuffer2[i] = (adcBuffer[1] * vdda) / 4095;
-				sum2 += voltBuffer2[i] * voltBuffer2[i];
 				voltBuffer3[i] = (adcBuffer[2] * vdda) / 4095;
-				sum3 += voltBuffer3[i] * voltBuffer3[i];
 				HAL_Delay(1);
 			}
-			vrms[0] = sqrt(sum1/200);
-			vrms[1] = sqrt(sum2/200);
-			vrms[2] = sqrt(sum3/200);
+			// GET MAX VALUE & VRMS
+			vrms[0] = getMaxValue(voltBuffer1, 200)/sqrt(2);
+			vrms[1] = getMaxValue(voltBuffer2, 200)/sqrt(2);
+			vrms[2] = getMaxValue(voltBuffer3, 200)/sqrt(2);
 		}
+
 
 		// CLEARING DATA BUFFER STRING
 		for(uint8_t index=0;index>30;index++){bufferString[index]=0;}
@@ -200,7 +200,7 @@ int main(void)
 			// GENERATE TEXT >> STATE
 			sprintf(bufferString,"[%d],CH1:%d,CH2:%d,CH3:%d;\r\n",counterLog,stateCH[CH1],stateCH[CH2],stateCH[CH3]);
 			// GENERATE TEXT >> FLOAT VOLTAGE
-//			sprintf(bufferString,"[%d],CH1:%d(%d)=%d,CH2:%d(%d)=%d,CH3:%d(%d)=%d;\r\n",counterLog,vrms[CH1],vAdcVrmsOff[CH1],stateCH[CH1],vrms[CH2],vAdcVrmsOff[CH2],stateCH[CH2],vrms[CH3],vAdcVrmsOff[CH3],stateCH[CH3]);
+//			sprintf(bufferString,"[%d],CH1:%d(%d)=%d,CH2:%d(%d)=%d,CH3:%d(%d)=%d;==%d\r\n",counterLog,vrms[CH1],vAdcVrmsOff[CH1],stateCH[CH1],vrms[CH2],vAdcVrmsOff[CH2],stateCH[CH2],vrms[CH3],vAdcVrmsOff[CH3],stateCH[CH3],vdda);
 
 			// COUNTING SIZE OF FRAM STRING
 			for(uint8_t i=0;i<100;i++){
@@ -217,61 +217,62 @@ int main(void)
 				counterLog = 0;
 			}
 		}
-		/* USER CODE END WHILE */
 
-		/* USER CODE BEGIN 3 */
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
 	}
-	/* USER CODE END 3 */
+  /* USER CODE END 3 */
 }
 
 /**
- * @brief System Clock Configuration
- * @retval None
- */
+  * @brief System Clock Configuration
+  * @retval None
+  */
 void SystemClock_Config(void)
 {
-	RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-	RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
-	RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
 
-	/** Configure the main internal regulator output voltage
-	 */
-	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+  /** Configure the main internal regulator output voltage
+  */
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-	/** Initializes the RCC Oscillators according to the specified parameters
-	 * in the RCC_OscInitTypeDef structure.
-	 */
-	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-	RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-	RCC_OscInitStruct.PLL.PLLMUL = RCC_PLLMUL_4;
-	RCC_OscInitStruct.PLL.PLLDIV = RCC_PLLDIV_2;
-	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-	{
-		Error_Handler();
-	}
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLLMUL_4;
+  RCC_OscInitStruct.PLL.PLLDIV = RCC_PLLDIV_2;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
-	/** Initializes the CPU, AHB and APB buses clocks
-	 */
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-			|RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
-	{
-		Error_Handler();
-	}
-	PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_LPUART1;
-	PeriphClkInit.Lpuart1ClockSelection = RCC_LPUART1CLKSOURCE_PCLK1;
-	if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
-	{
-		Error_Handler();
-	}
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_LPUART1;
+  PeriphClkInit.Lpuart1ClockSelection = RCC_LPUART1CLKSOURCE_PCLK1;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /* USER CODE BEGIN 4 */
@@ -284,33 +285,33 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef * hadc){
 /* USER CODE END 4 */
 
 /**
- * @brief  This function is executed in case of error occurrence.
- * @retval None
- */
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
 void Error_Handler(void)
 {
-	/* USER CODE BEGIN Error_Handler_Debug */
+  /* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 	__disable_irq();
 	while (1)
 	{
 	}
-	/* USER CODE END Error_Handler_Debug */
+  /* USER CODE END Error_Handler_Debug */
 }
 
 #ifdef  USE_FULL_ASSERT
 /**
- * @brief  Reports the name of the source file and the source line number
- *         where the assert_param error has occurred.
- * @param  file: pointer to the source file name
- * @param  line: assert_param error line source number
- * @retval None
- */
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
 void assert_failed(uint8_t *file, uint32_t line)
 {
-	/* USER CODE BEGIN 6 */
+  /* USER CODE BEGIN 6 */
 	/* User can add his own implementation to report the file name and line number,
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-	/* USER CODE END 6 */
+  /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
